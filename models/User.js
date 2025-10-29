@@ -1,11 +1,28 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-  name: { type: String },
+  name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, default: "user" } // 'user' or 'admin'
-  
+  role: { type: String, default: "user" }, // make sure role always exists
+   dashboardType: {
+    type: String,
+    enum: ["business", "project"],
+    required: true,
+  },
+
+  dashboardData: {
+    type: Object,
+    default: {
+      cards: [
+        { title: "Team Members" },
+        { title: "Websites" },
+        { title: "Digital Marketing" },
+      ],
+      clients: [],
+      members: [],
+    },
+  },
 });
 
-module.exports = mongoose.model('User', userSchema);
+export default mongoose.model("User", userSchema);
