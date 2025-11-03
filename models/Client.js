@@ -2,22 +2,24 @@ import mongoose from "mongoose";
 
 const ReminderSchema = new mongoose.Schema({
   date: String, // YYYY-MM-DD
-  time: String, // HH:MM
+  time: String, // e.g. "02:30 PM"
   message: String,
-  notified: { type: Boolean, default: false } // track if notification was shown
+  notified: { type: Boolean, default: false },
 });
 
 const ClientSchema = new mongoose.Schema({
   clientName: String,
+   clientStartDate: String,
   clientRequirement: String,
-  clientStartDate: String,
+  clientRefrence: String,
   clientEndDate: String,
   clientContact: String,
   clientEmail: String,
+  clientDiscussionDate: String,
   clientLocation: String,
-  clientProjectValue: String,
+  clientFollowup: String,
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  reminders: [ReminderSchema]
+  reminders: [ReminderSchema],
 });
 
 export default mongoose.model("Client", ClientSchema);

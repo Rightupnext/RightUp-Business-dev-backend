@@ -6,11 +6,13 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 
+
 import authRoutes from "./routes/authRoutes.js";
 import clientRoutes from "./routes/clientRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
-
+import projectRoutes from "./routes/projectRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 
 const app = express();
 app.use(cors());
@@ -30,7 +32,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/clients", clientRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/tasks", taskRoutes);
-
+app.use("/api/projects", projectRoutes);
+app.use("/api/reports", reportRoutes);
 app.listen(process.env.PORT, () =>
   console.log(`✅ Server running on ${process.env.PORT}`)
 );

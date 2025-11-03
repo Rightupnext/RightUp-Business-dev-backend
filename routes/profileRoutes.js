@@ -57,4 +57,40 @@ router.put(
   }
 );
 
+// ✅ Get All Project Role Users
+router.get("/all-project-users", verifyToken, async (req, res) => {
+  try {
+    // Find all users with role = "project"
+    const projectUsers = await User.find({ role: "project" }).select("name email _id");
+
+    // Get all profiles belonging to those users
+    const profiles = await Profile.find({
+      userId: { $in: projectUsers.map((u) => u._id) },
+    });
+
+    // Merge User + Profile data
+    const result = projectUsers.map((user) => {
+      const profile = profiles.find(
+        (p) => p.userId.toString() === user._id.toString()
+      );
+      return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        employeeId: profile?.employeeId || "",
+        emp_role: profile?.emp_role || "",
+        address: profile?.address || "",
+        bloodGroup: profile?.bloodGroup || "",
+        profileImage: profile?.profileImage || "",
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching project users:", err);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+
 export default router;
