@@ -1,5 +1,4 @@
 import express from "express";
-import axios from "axios";
 import Client from "../models/Client.js";
 import { verifyToken } from "../middleware/auth.js";
 
@@ -60,30 +59,7 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     const client = await Client.create(data);
-
-    // ✅ Send Pushify notification when reminder is set
-    const reminder = client.reminders?.[0];
-    if (reminder && process.env.PUSHIFY_SECRET_KEY) {
-      try {
-        const response = await axios.post(
-          "https://api.pushify.io/v1/notifications",
-          {
-            title: `📅 Reminder Set for ${client.clientName}`,
-            message: `${reminder.message} — ${reminder.date} at ${reminder.time}`,
-            target: "all", // Send to all subscribers
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.PUSHIFY_SECRET_KEY}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log("✅ Pushify notification sent:", response.data);
-      } catch (notifErr) {
-        console.error("❌ Pushify notification failed:", notifErr.message);
-      }
-    }
+    console.log("✅ Client created:", client.clientName);
 
     res.status(201).json(client);
   } catch (err) {
@@ -93,7 +69,7 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 /**
- * 🟩 UPDATE client — triggers Pushify notification automatically after update
+ * 🟩 UPDATE client
  */
 router.put("/:id", verifyToken, async (req, res) => {
   try {
@@ -121,30 +97,7 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     if (!client) return res.status(404).json({ message: "Client not found" });
 
-    // ✅ Trigger Pushify notification after update
-    const reminder = client.reminders?.[0];
-    if (reminder && process.env.PUSHIFY_SECRET_KEY) {
-      try {
-        const response = await axios.post(
-          "https://api.pushify.io/v1/notifications",
-          {
-            title: `🔔 Reminder Updated for ${client.clientName}`,
-            message: `${reminder.message} — ${reminder.date} at ${reminder.time}`,
-            target: "all", // you can target "all" or specific subscribers
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.PUSHIFY_SECRET_KEY}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log("✅ Pushify update notification sent:", response.data);
-      } catch (notifErr) {
-        console.error("❌ Pushify update notification failed:", notifErr.message);
-      }
-    }
-
+    console.log("✅ Client updated:", client.clientName);
     res.json({ message: "Client updated successfully", client });
   } catch (err) {
     console.error("❌ Error updating client:", err);
@@ -196,6 +149,7 @@ router.get("/reminders", verifyToken, async (req, res) => {
 
     res.json(reminders);
   } catch (err) {
+    console.error("❌ Error fetching reminders:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -223,6 +177,7 @@ router.delete("/reminders/:id", verifyToken, async (req, res) => {
     if (!found) return res.status(404).json({ error: "Reminder not found" });
     res.json({ message: "Reminder deleted successfully" });
   } catch (err) {
+    console.error("❌ Error deleting reminder:", err);
     res.status(500).json({ error: err.message });
   }
 });

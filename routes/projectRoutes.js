@@ -13,6 +13,7 @@ router.post("/", verifyToken, async (req, res) => {
     if (!projectName || !projectType)
       return res.status(400).json({ message: "Project name and type are required" });
 
+    // ✅ attach logged-in user ID from token
     const project = new Project({
       user: req.user.id,
       projectName,
@@ -31,17 +32,34 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-/** ✅ Get ALL projects (Admin Dashboard View) */
+/** ✅ Get all projects (Admin dashboard view) */
 router.get("/", verifyToken, async (req, res) => {
   try {
-    // ✅ Fetch all projects from all users and populate user details
     const projects = await Project.find()
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+    res.json(projects);
+  } catch (error) {
+    console.error("Error fetching all projects:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/** ✅ Get projects by logged-in user */
+router.get("/user/:userId", verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const projects = await Project.find({ user: userId })
       .populate("user", "name email")
       .sort({ createdAt: -1 });
 
     res.json(projects);
   } catch (error) {
-    console.error("Error fetching all projects:", error);
+    console.error("Error fetching user projects:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -51,13 +69,9 @@ router.get("/category/:type", verifyToken, async (req, res) => {
   try {
     const { type } = req.params;
     const regex = new RegExp(type, "i");
-
-    const projects = await Project.find({
-      projectType: { $regex: regex },
-    })
+    const projects = await Project.find({ projectType: { $regex: regex } })
       .populate("user", "name email")
       .sort({ createdAt: -1 });
-
     res.json(projects);
   } catch (error) {
     console.error("Error fetching projects by category:", error);
