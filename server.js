@@ -30,12 +30,12 @@ app.get("/", (req, res) => {
   res.send("API is running ✅");
 });
 // ✅ API Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/clients", clientRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/tasks", taskRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/reports", reportRoutes);
+app.use("/auth", authRoutes);
+app.use("/clients", clientRoutes);
+app.use("/profile", profileRoutes);
+app.use("/tasks", taskRoutes);
+app.use("/projects", projectRoutes);
+app.use("/reports", reportRoutes);
 app.listen(process.env.PORT, () =>
   console.log(`✅ Server running on ${process.env.PORT}`)
 );
