@@ -11,40 +11,41 @@ function parseTimeToDate(dateStr, timeStr) {
   try {
     const [time, modifier] = timeStr.split(" ");
     let [hours, minutes] = time.split(":");
+
     hours = parseInt(hours);
     if (modifier === "PM" && hours !== 12) hours += 12;
     if (modifier === "AM" && hours === 12) hours = 0;
+
     const dateTime = new Date(dateStr);
     dateTime.setHours(hours);
     dateTime.setMinutes(parseInt(minutes));
     dateTime.setSeconds(0);
+
     return dateTime;
   } catch (err) {
     return null;
   }
 }
 
-/**
- * 🟩 GET all clients for the logged-in user
- */
-router.get("/", verifyToken, async (req, res) => {
-  try {
-    const clients = await Client.find({ userId: req.user.id });
-    res.json(clients);
-  } catch (err) {
-    console.error("❌ Error fetching clients:", err);
-    res.status(500).json({ error: err.message });
-  }
+
+router.get("/getclientDetails", verifyToken, async (req, res) => {
+  if (req.user.role !== "business")
+    return res.status(403).json({ error: "Access denied" });
+
+  const clients = await Client.find()
+    .populate("userId", "name email")
+    .sort({ createdAt: -1 });
+
+  res.json(clients);
 });
 
-/**
- * 🟩 CREATE a new client
- */
+
+
 router.post("/", verifyToken, async (req, res) => {
   try {
     const data = { ...req.body, userId: req.user.id };
 
-    // Convert reminder fields if available
+    // Create reminder object
     if (data.reminderDate && data.reminderTime && data.reminderMessage) {
       data.reminders = [
         {
@@ -59,8 +60,8 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     const client = await Client.create(data);
-    console.log("✅ Client created:", client.clientName);
 
+    console.log("✅ Client created:", client.clientName);
     res.status(201).json(client);
   } catch (err) {
     console.error("❌ Error saving client:", err);
@@ -69,13 +70,12 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 /**
- * 🟩 UPDATE client
+ * 🟩 UPDATE client (ANY business user can update ANY client)
  */
 router.put("/:id", verifyToken, async (req, res) => {
   try {
     const data = { ...req.body };
 
-    // Convert reminder fields if available
     if (data.reminderDate && data.reminderTime && data.reminderMessage) {
       data.reminders = [
         {
@@ -89,11 +89,9 @@ router.put("/:id", verifyToken, async (req, res) => {
       delete data.reminderMessage;
     }
 
-    const client = await Client.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      data,
-      { new: true }
-    );
+    const client = await Client.findByIdAndUpdate(req.params.id, data, {
+      new: true,
+    });
 
     if (!client) return res.status(404).json({ message: "Client not found" });
 
@@ -106,43 +104,58 @@ router.put("/:id", verifyToken, async (req, res) => {
 });
 
 /**
- * 🟩 DELETE client
+ * 🟩 DELETE client (ANY business user can delete ANY client)
  */
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
-    const client = await Client.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user.id,
-    });
+    const client = await Client.findByIdAndDelete(req.params.id);
+
     if (!client) return res.status(404).json({ error: "Client not found" });
+
     res.json({ message: "Client deleted successfully" });
   } catch (err) {
+    console.error("❌ Error deleting client:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 /**
- * 🟩 GET all upcoming reminders
+ * 🟩 GET all reminders (ALL business users see ALL reminders)
  */
 router.get("/reminders", verifyToken, async (req, res) => {
   try {
-    const clients = await Client.find({ userId: req.user.id });
+    if (req.user.role !== "business") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const clients = await Client.find();
     const reminders = [];
     const now = new Date();
 
     clients.forEach((client) => {
       (client.reminders || []).forEach((rem) => {
         const remDateTime = parseTimeToDate(rem.date, rem.time);
-        if (remDateTime && remDateTime >= now) {
-          reminders.push({
-            _id: rem._id,
-            clientId: client._id,
-            clientName: client.clientName,
-            clientContact: client.clientContact,
-            date: rem.date,
-            time: rem.time,
-            message: rem.message,
-          });
+
+        if (remDateTime) {
+          const reminderDate = new Date(rem.date);
+          const today = new Date();
+
+          const isSameDay =
+            reminderDate.getFullYear() === today.getFullYear() &&
+            reminderDate.getMonth() === today.getMonth() &&
+            reminderDate.getDate() === today.getDate();
+
+          if (remDateTime >= now || isSameDay) {
+            reminders.push({
+              _id: rem._id,
+              clientId: client._id,
+              clientName: client.clientName,
+              clientContact: client.clientContact,
+              date: rem.date,
+              time: rem.time,
+              message: rem.message,
+            });
+          }
         }
       });
     });
@@ -155,17 +168,18 @@ router.get("/reminders", verifyToken, async (req, res) => {
 });
 
 /**
- * 🟩 DELETE a single reminder
+ * 🟩 DELETE a single reminder (ANY business user can delete ANY reminder)
  */
 router.delete("/reminders/:id", verifyToken, async (req, res) => {
   try {
-    const clients = await Client.find({ userId: req.user.id });
+    const clients = await Client.find();
     let found = false;
 
     for (const client of clients) {
       const index = client.reminders.findIndex(
         (r) => r._id.toString() === req.params.id
       );
+
       if (index !== -1) {
         client.reminders.splice(index, 1);
         await client.save();
@@ -175,6 +189,7 @@ router.delete("/reminders/:id", verifyToken, async (req, res) => {
     }
 
     if (!found) return res.status(404).json({ error: "Reminder not found" });
+
     res.json({ message: "Reminder deleted successfully" });
   } catch (err) {
     console.error("❌ Error deleting reminder:", err);

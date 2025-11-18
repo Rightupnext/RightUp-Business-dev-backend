@@ -1,3 +1,4 @@
+// routes/tasks.js
 import express from "express";
 import fileUpload from "express-fileupload";
 import streamifier from "streamifier";
@@ -15,22 +16,25 @@ router.use(
   })
 );
 
-const todayDate = () => new Date().toISOString().slice(0, 10);
-const timeNowPretty = () =>
-  new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+// ✅ Helper functions — no timezone formatting
+const todayDate = () => {
+  const now = new Date();
+  return now.toISOString().slice(0, 10); // always in UTC (YYYY-MM-DD)
+};
+
+const timeNowRaw = () => {
+  const now = new Date();
+  return now.toISOString().split("T")[1].slice(0, 8); // HH:mm:ss (24-hour)
+};
 
 /* -------------------------------------------------------------------------- */
 /* ✅ 1. GET groups for Logged-in User                                        */
 /* -------------------------------------------------------------------------- */
 router.get("/groups", verifyToken, async (req, res) => {
   try {
-    const q = { userId: req.user._id };
-    if (req.query.date) q.date = req.query.date;
-    const groups = await TaskGroup.find(q).sort({ createdAt: -1 });
+    const query = { userId: req.user._id };
+    if (req.query.date) query.date = req.query.date;
+    const groups = await TaskGroup.find(query).sort({ createdAt: -1 });
     res.json(groups);
   } catch (err) {
     console.error("Error fetching self task groups:", err);
@@ -44,9 +48,9 @@ router.get("/groups", verifyToken, async (req, res) => {
 router.get("/groups/user/:userId", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const q = { userId };
-    if (req.query.date) q.date = req.query.date;
-    const groups = await TaskGroup.find(q).sort({ createdAt: -1 });
+    const query = { userId };
+    if (req.query.date) query.date = req.query.date;
+    const groups = await TaskGroup.find(query).sort({ createdAt: -1 });
     res.json(groups);
   } catch (err) {
     console.error("Error fetching user task groups:", err);
@@ -90,7 +94,7 @@ router.delete("/groups/:groupId", verifyToken, async (req, res) => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* ✅ 5. Update group time fields                                             */
+/* ✅ 5. Update group time fields (no timezone formatting)                    */
 /* -------------------------------------------------------------------------- */
 router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
   try {
@@ -116,7 +120,7 @@ router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
     if (group[type])
       return res.status(400).json({ message: "Already recorded" });
 
-    group[type] = timeNowPretty();
+    group[type] = timeNowRaw(); // save UTC HH:mm:ss
     await group.save();
     res.json(group);
   } catch (err) {
@@ -130,7 +134,7 @@ router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
 /* -------------------------------------------------------------------------- */
 router.post("/groups/:groupId/tasks", verifyToken, async (req, res) => {
   try {
-    const now = timeNowPretty();
+    const now = timeNowRaw();
     const task = {
       projname: "",
       name: "",
@@ -177,7 +181,7 @@ router.patch("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) => 
 });
 
 /* -------------------------------------------------------------------------- */
-/* ✅ 8. Upload task image (Direct Cloudinary, no multer)                    */
+/* ✅ 8. Upload task image (Direct Cloudinary)                               */
 /* -------------------------------------------------------------------------- */
 router.post(
   "/groups/:groupId/tasks/:taskId/images",
@@ -251,6 +255,35 @@ router.delete("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) =>
   } catch (err) {
     console.error("Delete task error:", err);
     res.status(500).json({ message: "Task delete failed" });
+  }
+});
+router.put("/groups/:groupId/endtime", verifyToken, async (req, res) => {
+  try {
+    const group = await TaskGroup.findOne({
+      _id: req.params.groupId,
+      userId: req.user._id,
+    });
+
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    if (group.endTiming) 
+      return res.status(400).json({ message: "Already recorded" });
+
+    const now = new Date()
+      .toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      });
+
+    group.endTiming = now;
+    await group.save();
+
+    res.json(group);
+  } catch (err) {
+    console.error("End time error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
