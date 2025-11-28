@@ -6,6 +6,7 @@ import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
+
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password, role, dashboardType } = req.body;
@@ -15,7 +16,8 @@ router.post("/register", async (req, res) => {
     }
 
     const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: "User already exists" });
+    if (existing)
+      return res.status(400).json({ message: "User already exists" });
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -23,37 +25,41 @@ router.post("/register", async (req, res) => {
       name,
       email,
       password: hashed,
-      role: role || "user",
-      dashboardType,
+      role,            // "business" or "project"
+      dashboardType,   // "business" or "project"
     });
 
     await newUser.save();
 
-    res.json({ message: "Registered successfully ✅" });
+    res.json({ message: "Registered successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ LOGIN FIXED ✅
+
 router.post("/login", async (req, res) => {
   try {
     const { email, password, dashboardType } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    if (!user)
+      return res.status(400).json({ message: "Invalid credentials" });
 
     if (dashboardType !== user.dashboardType) {
-      return res.status(400).json({ message: "Invalid user access area" });
+      return res.status(400).json({
+        message: "Invalid login area for this user",
+      });
     }
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ message: "Invalid credentials" });
+    if (!valid)
+      return res.status(400).json({ message: "Invalid credentials" });
 
+    // 🔥 TOKEN WITHOUT EXPIRY (NO expiresIn)
     const token = jwt.sign(
       { id: user._id, role: user.role, dashboardType: user.dashboardType },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      process.env.JWT_SECRET
     );
 
     res.json({
@@ -70,43 +76,39 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-// GET CURRENT USER
+
+
 router.get("/me", verifyToken, (req, res) => {
   res.json({ user: req.user });
 });
 
-// DASHBOARD (role-based)
+
 router.get("/dashboard", verifyToken, (req, res) => {
   const { role } = req.user;
-  let dashboardData = {};
 
-  if (role === "admin") {
-    dashboardData = {
-      title: "Admin Dashboard",
+  const dashboards = {
+    business: {
+      title: "Business Dashboard",
       cards: [
-        { title: "Total Users", count: 25 },
-        { title: "Active Projects", count: 8 },
+        { title: "Total Projects", count: 14 },
+        { title: "Employees", count: 45 },
       ],
-    };
-  } else if (role === "client") {
-    dashboardData = {
-      title: "Client Dashboard",
+    },
+    project: {
+      title: "Project Dashboard",
       cards: [
-        { title: "Active Orders", count: 3 },
-        { title: "Invoices", count: 5 },
+        { title: "Assigned Tasks", count: 12 },
+        { title: "Completed", count: 7 },
       ],
-    };
-  } else {
-    dashboardData = {
+    },
+  };
+
+  res.json({
+    dashboardData: dashboards[role] || {
       title: "User Dashboard",
-      cards: [
-        { title: "Notifications", count: 2 },
-        { title: "Tasks", count: 4 },
-      ],
-    };
-  }
-
-  res.json({ dashboardData });
+      cards: [],
+    },
+  });
 });
 
 export default router;

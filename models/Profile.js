@@ -7,7 +7,7 @@ const profileSchema = new mongoose.Schema({
   emp_role: { type: String, required: true },
   address: { type: String, required: true },
   bloodGroup: { type: String, required: true },
-  profileImage: { type: String }, // ✅ Not required for new users
+  profileImage: { type: [String], default: [] },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
 

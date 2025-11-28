@@ -124,8 +124,9 @@ router.delete("/:id", verifyToken, async (req, res) => {
  */
 router.get("/reminders", verifyToken, async (req, res) => {
   try {
+    // Allow access but restrict results
     if (req.user.role !== "business") {
-      return res.status(403).json({ message: "Access denied" });
+      return res.json([]); 
     }
 
     const clients = await Client.find();
@@ -166,6 +167,7 @@ router.get("/reminders", verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 /**
  * 🟩 DELETE a single reminder (ANY business user can delete ANY reminder)

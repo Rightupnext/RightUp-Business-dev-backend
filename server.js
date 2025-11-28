@@ -6,7 +6,6 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 
-
 import authRoutes from "./routes/authRoutes.js";
 import clientRoutes from "./routes/clientRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";

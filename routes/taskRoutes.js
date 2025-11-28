@@ -27,9 +27,9 @@ const timeNowRaw = () => {
   return now.toISOString().split("T")[1].slice(0, 8); // HH:mm:ss (24-hour)
 };
 
-/* -------------------------------------------------------------------------- */
+
 /* ✅ 1. GET groups for Logged-in User                                        */
-/* -------------------------------------------------------------------------- */
+
 router.get("/groups", verifyToken, async (req, res) => {
   try {
     const query = { userId: req.user._id };
@@ -42,9 +42,8 @@ router.get("/groups", verifyToken, async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
 /* ✅ 2. GET groups for ANY User (Admin View)                                 */
-/* -------------------------------------------------------------------------- */
+
 router.get("/groups/user/:userId", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -58,9 +57,9 @@ router.get("/groups/user/:userId", verifyToken, async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
+
 /* ✅ 3. Create new task group (self)                                         */
-/* -------------------------------------------------------------------------- */
+
 router.post("/groups", verifyToken, async (req, res) => {
   try {
     const date = req.body.date || todayDate();
@@ -77,9 +76,8 @@ router.post("/groups", verifyToken, async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
 /* ✅ 4. Delete a task group                                                  */
-/* -------------------------------------------------------------------------- */
+
 router.delete("/groups/:groupId", verifyToken, async (req, res) => {
   try {
     await TaskGroup.findOneAndDelete({
@@ -93,9 +91,9 @@ router.delete("/groups/:groupId", verifyToken, async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
+
 /* ✅ 5. Update group time fields (no timezone formatting)                    */
-/* -------------------------------------------------------------------------- */
+
 router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
   try {
     const { type } = req.body;
@@ -129,9 +127,9 @@ router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
+
 /* ✅ 6. Add new task                                                        */
-/* -------------------------------------------------------------------------- */
+
 router.post("/groups/:groupId/tasks", verifyToken, async (req, res) => {
   try {
     const now = timeNowRaw();
@@ -155,34 +153,60 @@ router.post("/groups/:groupId/tasks", verifyToken, async (req, res) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
 /* ✅ 7. Update task fields (inline edit)                                     */
-/* -------------------------------------------------------------------------- */
+
 router.patch("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) => {
   try {
     const { groupId, taskId } = req.params;
+
+    // Body fields to update
     const updateFields = req.body;
+
+    // Handle file upload (optional)
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const stream = streamifier.createReadStream(file.data);
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: "tasks" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+
+        stream.pipe(uploadStream);
+      });
+
+      updateFields.fileUrl = uploadResult.secure_url;
+    }
+
+    // Build $set object safely
+    const setObject = {};
+    for (const [key, value] of Object.entries(updateFields)) {
+      setObject[`tasks.$.${key}`] = value;
+    }
 
     const updated = await TaskGroup.findOneAndUpdate(
       { _id: groupId, userId: req.user._id, "tasks._id": taskId },
-      {
-        $set: Object.entries(updateFields).reduce(
-          (acc, [key, val]) => ({ ...acc, [`tasks.$.${key}`]: val }),
-          {}
-        ),
-      },
+      { $set: setObject },
       { new: true }
     );
+
+    if (!updated) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
     res.json(updated);
+
   } catch (err) {
-    console.error("Update task error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("PATCH ERROR:", err);
+    res.status(500).json({ error: "Server error updating task" });
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* ✅ 8. Upload task image (Direct Cloudinary)                               */
-/* -------------------------------------------------------------------------- */
+
 router.post(
   "/groups/:groupId/tasks/:taskId/images",
   verifyToken,
@@ -217,9 +241,8 @@ router.post(
   }
 );
 
-/* -------------------------------------------------------------------------- */
 /* ✅ 9. Delete task image                                                   */
-/* -------------------------------------------------------------------------- */
+
 router.delete("/groups/:groupId/tasks/:taskId/images", verifyToken, async (req, res) => {
   try {
     const { groupId, taskId } = req.params;
@@ -239,9 +262,8 @@ router.delete("/groups/:groupId/tasks/:taskId/images", verifyToken, async (req, 
   }
 });
 
-/* -------------------------------------------------------------------------- */
 /* ✅ 10. Delete task only                                                   */
-/* -------------------------------------------------------------------------- */
+
 router.delete("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) => {
   try {
     const { groupId, taskId } = req.params;
