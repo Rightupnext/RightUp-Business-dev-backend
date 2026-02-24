@@ -1,6 +1,7 @@
 import express from "express";
 import Client from "../models/Client.js";
 import { verifyToken } from "../middleware/auth.js";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -41,7 +42,7 @@ router.get("/getclientDetails", verifyToken, async (req, res) => {
 
 
 
-router.post("/", verifyToken, async (req, res) => {
+router.post("/", verifyToken, upload.array("files"), async (req, res) => {
   try {
     const data = { ...req.body, userId: req.user.id };
 
@@ -59,6 +60,16 @@ router.post("/", verifyToken, async (req, res) => {
       delete data.reminderMessage;
     }
 
+    // Process files
+    if (req.files && req.files.length > 0) {
+      data.attachments = req.files.map((file) => ({
+        name: file.originalname,
+        url: `/uploads/clients/${file.filename}`,
+        mimetype: file.mimetype,
+        size: file.size,
+      }));
+    }
+
     const client = await Client.create(data);
 
     console.log("✅ Client created:", client.clientName);
@@ -72,7 +83,7 @@ router.post("/", verifyToken, async (req, res) => {
 /**
  * 🟩 UPDATE client (ANY business user can update ANY client)
  */
-router.put("/:id", verifyToken, async (req, res) => {
+router.put("/:id", verifyToken, upload.array("files"), async (req, res) => {
   try {
     const data = { ...req.body };
 
@@ -88,6 +99,31 @@ router.put("/:id", verifyToken, async (req, res) => {
       delete data.reminderTime;
       delete data.reminderMessage;
     }
+
+    // Handle attachments persistence/update
+    // existingAttachments should be passed as a JSON string if part of FormData
+    let currentAttachments = [];
+    if (data.existingAttachments) {
+      try {
+        currentAttachments = JSON.parse(data.existingAttachments);
+        delete data.existingAttachments;
+      } catch (e) {
+        currentAttachments = [];
+      }
+    }
+
+    // Add new files
+    if (req.files && req.files.length > 0) {
+      const newAttachments = req.files.map((file) => ({
+        name: file.originalname,
+        url: `/uploads/clients/${file.filename}`,
+        mimetype: file.mimetype,
+        size: file.size,
+      }));
+      currentAttachments = [...currentAttachments, ...newAttachments];
+    }
+
+    data.attachments = currentAttachments;
 
     const client = await Client.findByIdAndUpdate(req.params.id, data, {
       new: true,
@@ -126,7 +162,7 @@ router.get("/reminders", verifyToken, async (req, res) => {
   try {
     // Allow access but restrict results
     if (req.user.role !== "business") {
-      return res.json([]); 
+      return res.json([]);
     }
 
     const clients = await Client.find();

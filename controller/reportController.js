@@ -1,9 +1,8 @@
-import express from "express";
 import TaskGroup from "../models/TaskGroup.js";
 
-const router = express.Router();
+/* ================= HELPERS ================= */
 
-/* helper → get all days till today */
+// get all days till today of selected month
 const getDaysInMonth = (year, month) => {
   const days = [];
   const totalDays = new Date(year, month, 0).getDate();
@@ -13,16 +12,19 @@ const getDaysInMonth = (year, month) => {
     const d = new Date(year, month - 1, i);
     if (d > today) break;
 
-    const formatted = `${year}-${String(month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+    const formatted = `${year}-${String(month).padStart(2, "0")}-${String(
+      i
+    ).padStart(2, "0")}`;
+
     days.push(formatted);
   }
   return days;
 };
 
-// Sunday check
+// Sunday leave
 const isSunday = (dateString) => new Date(dateString).getDay() === 0;
 
-// 1st & 3rd Saturday check
+// 1st & 3rd Saturday leave
 const isFirstOrThirdSaturday = (dateString) => {
   const d = new Date(dateString);
   if (d.getDay() !== 6) return false;
@@ -30,10 +32,9 @@ const isFirstOrThirdSaturday = (dateString) => {
   return weekNumber === 1 || weekNumber === 3;
 };
 
-/**
- * GET MONTHLY REPORT
- */
-router.get("/monthly/:userId/:month/:year", async (req, res) => {
+/* ================= CONTROLLER ================= */
+
+export const getMonthlyReport = async (req, res) => {
   try {
     const { userId, month, year } = req.params;
     const monthNum = parseInt(month);
@@ -41,23 +42,15 @@ router.get("/monthly/:userId/:month/:year", async (req, res) => {
 
     const days = getDaysInMonth(yearNum, monthNum);
 
-    // 🔥 FETCH ALL USER RECORDS (NO DATE FILTER)
-    const records = await TaskGroup.find({ userId });
-
-    console.log("User Records Count:", records.length);
-
-    // 🔥 FILTER BY MONTH IN NODE (100% SAFE)
-    const monthRecords = records.filter((r) => {
-      if (!r.date) return false;
-      const [y, m] = r.date.split("-");
-      return Number(y) === yearNum && Number(m) === monthNum;
+    // fetch attendance records of selected month
+    const records = await TaskGroup.find({
+      userId,
+      date: { $regex: `^${year}-${String(month).padStart(2, "0")}` },
     });
 
-    console.log("Filtered Month Records:", monthRecords.length);
-
-    // 🔥 BUILD FULL MONTH REPORT DAY BY DAY
+    // 🔥 BUILD MONTHLY REPORT DAY-BY-DAY
     const report = days.map((day) => {
-      const record = monthRecords.find((r) => r.date === day);
+      const record = records.find((r) => r.date === day);
 
       // 🟢 PRESENT
       if (record && record.timeIn) {
@@ -66,13 +59,7 @@ router.get("/monthly/:userId/:month/:year", async (req, res) => {
           status: "Present",
           color: "green",
           timeIn: record.timeIn,
-          timeOut: record.timeOut,
-          MGBreakIn: record.MGBreakIn,
-          MGBreakOut: record.MGBreakOut,
-          LunchbreakIn: record.LunchbreakIn,
-          LunchbreakOut: record.LunchbreakOut,
-          EveBreakIn: record.EveBreakIn,
-          EveBreakOut: record.EveBreakOut,
+          timeOut: record.timeOut || "",
         };
       }
 
@@ -85,7 +72,7 @@ router.get("/monthly/:userId/:month/:year", async (req, res) => {
         };
       }
 
-      // 🔴 ABSENT
+      // 🔴 ABSENT LEAVE
       return {
         date: day,
         status: "Absent Leave",
@@ -95,9 +82,7 @@ router.get("/monthly/:userId/:month/:year", async (req, res) => {
 
     res.json(report);
   } catch (err) {
-    console.error("Monthly Report Error:", err);
+    console.error("Monthly report error:", err);
     res.status(500).json({ message: "Server error" });
   }
-});
-
-export default router;
+};

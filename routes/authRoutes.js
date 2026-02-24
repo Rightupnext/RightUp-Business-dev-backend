@@ -77,10 +77,70 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// DELETE USER BY ID
+router.delete("/delete/:id", verifyToken, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Delete user
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 router.get("/me", verifyToken, (req, res) => {
   res.json({ user: req.user });
 });
+
+// REQUEST PASSWORD RESET (check email exists)
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) return res.status(400).json({ message: "Email required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ message: "User verified. You can reset password now." });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// RESET PASSWORD
+router.put("/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword)
+      return res.status(400).json({ message: "All fields required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashed;
+    await user.save();
+
+    res.json({ message: "Password updated successfully 🎉" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 
 router.get("/dashboard", verifyToken, (req, res) => {

@@ -2,16 +2,38 @@ import express from "express";
 import Project from "../models/Project.js";
 import User from "../models/User.js";
 import { verifyToken } from "../middleware/auth.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const router = express.Router();
 
+// ✅ Multer storage configuration for projects
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = "uploads/projects/";
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ storage });
+
 /** ✅ Create Project */
-router.post("/", verifyToken, async (req, res) => {
+router.post("/", verifyToken, upload.array("files"), async (req, res) => {
   try {
     const { projectName, projectType, startDate, endDate, requirements, status } = req.body;
 
     if (!projectName || !projectType)
       return res.status(400).json({ message: "Project name and type are required" });
+
+    // ✅ Collect uploaded file paths
+    const requirementFiles = req.files ? req.files.map(file => `/uploads/projects/${file.filename}`) : [];
 
     // ✅ attach logged-in user ID from token
     const project = new Project({
@@ -21,6 +43,7 @@ router.post("/", verifyToken, async (req, res) => {
       startDate,
       endDate,
       requirements,
+      requirementFiles, // ✅ Save file paths
       status,
     });
 
@@ -80,9 +103,24 @@ router.get("/category/:type", verifyToken, async (req, res) => {
 });
 
 /** ✅ Update Project */
-router.put("/:id", verifyToken, async (req, res) => {
+router.put("/:id", verifyToken, upload.array("files"), async (req, res) => {
   try {
-    const updated = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body };
+
+    // ✅ Handle file uploads if any
+    if (req.files && req.files.length > 0) {
+      const newFiles = req.files.map(file => `/uploads/projects/${file.filename}`);
+
+      // Fetch existing project to append files
+      const project = await Project.findById(req.params.id);
+      if (project) {
+        updateData.requirementFiles = [...(project.requirementFiles || []), ...newFiles];
+      } else {
+        updateData.requirementFiles = newFiles;
+      }
+    }
+
+    const updated = await Project.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updated) return res.status(404).json({ message: "Project not found" });
     res.json(updated);
   } catch (error) {

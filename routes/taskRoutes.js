@@ -5,6 +5,12 @@ import streamifier from "streamifier";
 import { verifyToken } from "../middleware/auth.js";
 import TaskGroup from "../models/TaskGroup.js";
 import cloudinary from "../config/cloudinary.js";
+import {
+  handleAttendanceAction,
+  calculateWorkingMsLive,
+  calculateBreakDuration,
+  formatMs
+} from "../controller/taskGroupAttendanceController.js";
 
 const router = express.Router();
 
@@ -35,7 +41,28 @@ router.get("/groups", verifyToken, async (req, res) => {
     const query = { userId: req.user._id };
     if (req.query.date) query.date = req.query.date;
     const groups = await TaskGroup.find(query).sort({ createdAt: -1 });
-    res.json(groups);
+
+    // Calculate working hours and break durations for each group
+    const groupsWithWorkingTime = groups.map(group => {
+      const groupObj = group.toObject();
+
+      // Total working hours
+      const workingMs = calculateWorkingMsLive(groupObj);
+      groupObj.workingTime = formatMs(workingMs);
+
+      // Individual break durations
+      const mgBreakMs = calculateBreakDuration(groupObj.MGBreakIn, groupObj.MGBreakOut);
+      const lunchBreakMs = calculateBreakDuration(groupObj.LunchbreakIn, groupObj.LunchbreakOut);
+      const eveBreakMs = calculateBreakDuration(groupObj.EveBreakIn, groupObj.EveBreakOut);
+
+      groupObj.mgBreakDuration = formatMs(mgBreakMs);
+      groupObj.lunchBreakDuration = formatMs(lunchBreakMs);
+      groupObj.eveBreakDuration = formatMs(eveBreakMs);
+
+      return groupObj;
+    });
+
+    res.json(groupsWithWorkingTime);
   } catch (err) {
     console.error("Error fetching self task groups:", err);
     res.status(500).json({ message: "Server error" });
@@ -50,7 +77,28 @@ router.get("/groups/user/:userId", verifyToken, async (req, res) => {
     const query = { userId };
     if (req.query.date) query.date = req.query.date;
     const groups = await TaskGroup.find(query).sort({ createdAt: -1 });
-    res.json(groups);
+
+    // Calculate working hours and break durations for each group
+    const groupsWithWorkingTime = groups.map(group => {
+      const groupObj = group.toObject();
+
+      // Total working hours
+      const workingMs = calculateWorkingMsLive(groupObj);
+      groupObj.workingTime = formatMs(workingMs);
+
+      // Individual break durations
+      const mgBreakMs = calculateBreakDuration(groupObj.MGBreakIn, groupObj.MGBreakOut);
+      const lunchBreakMs = calculateBreakDuration(groupObj.LunchbreakIn, groupObj.LunchbreakOut);
+      const eveBreakMs = calculateBreakDuration(groupObj.EveBreakIn, groupObj.EveBreakOut);
+
+      groupObj.mgBreakDuration = formatMs(mgBreakMs);
+      groupObj.lunchBreakDuration = formatMs(lunchBreakMs);
+      groupObj.eveBreakDuration = formatMs(eveBreakMs);
+
+      return groupObj;
+    });
+
+    res.json(groupsWithWorkingTime);
   } catch (err) {
     console.error("Error fetching user task groups:", err);
     res.status(500).json({ message: "Server error" });
@@ -120,7 +168,22 @@ router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
 
     group[type] = timeNowRaw(); // save UTC HH:mm:ss
     await group.save();
-    res.json(group);
+
+    // Calculate and add working hours and break durations
+    const groupObj = group.toObject();
+    const workingMs = calculateWorkingMsLive(groupObj);
+    groupObj.workingTime = formatMs(workingMs);
+
+    // Individual break durations
+    const mgBreakMs = calculateBreakDuration(groupObj.MGBreakIn, groupObj.MGBreakOut);
+    const lunchBreakMs = calculateBreakDuration(groupObj.LunchbreakIn, groupObj.LunchbreakOut);
+    const eveBreakMs = calculateBreakDuration(groupObj.EveBreakIn, groupObj.EveBreakOut);
+
+    groupObj.mgBreakDuration = formatMs(mgBreakMs);
+    groupObj.lunchBreakDuration = formatMs(lunchBreakMs);
+    groupObj.eveBreakDuration = formatMs(eveBreakMs);
+
+    res.json(groupObj);
   } catch (err) {
     console.error("Time update error:", err);
     res.status(500).json({ message: "Server error" });
@@ -227,9 +290,20 @@ router.post(
         streamifier.createReadStream(imageFile.data).pipe(stream);
       });
 
+      const deleteAt = new Date();
+      deleteAt.setMonth(deleteAt.getMonth() + 2); // Set to 2 months from today
+
       const updated = await TaskGroup.findOneAndUpdate(
         { _id: groupId, userId: req.user._id, "tasks._id": taskId },
-        { $push: { "tasks.$.images": uploadResult.secure_url } },
+        {
+          $push: {
+            "tasks.$.images": {
+              url: uploadResult.secure_url,
+              public_id: uploadResult.public_id,
+              deleteAt: deleteAt
+            }
+          }
+        },
         { new: true }
       );
 
@@ -249,9 +323,31 @@ router.delete("/groups/:groupId/tasks/:taskId/images", verifyToken, async (req, 
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ message: "Missing URL" });
 
+    // Find the group and the specific task
+    const group = await TaskGroup.findOne({
+      _id: groupId,
+      userId: req.user._id,
+      "tasks._id": taskId
+    });
+
+    if (!group) return res.status(404).json({ message: "Task not found" });
+
+    const task = group.tasks.id(taskId);
+    // Find the image object to get the public_id
+    const imageObj = task.images.find(img => (typeof img === 'string' ? img : img.url) === imageUrl);
+
+    if (imageObj && typeof imageObj !== 'string' && imageObj.public_id) {
+      try {
+        await cloudinary.uploader.destroy(imageObj.public_id);
+      } catch (err) {
+        console.error("Cloudinary destroy error:", err);
+      }
+    }
+
+    // Now pull from the array
     const updated = await TaskGroup.findOneAndUpdate(
       { _id: groupId, userId: req.user._id, "tasks._id": taskId },
-      { $pull: { "tasks.$.images": imageUrl } },
+      { $pull: { "tasks.$.images": typeof imageObj === 'string' ? imageObj : { _id: imageObj._id } } },
       { new: true }
     );
 
@@ -287,7 +383,7 @@ router.put("/groups/:groupId/endtime", verifyToken, async (req, res) => {
     });
 
     if (!group) return res.status(404).json({ message: "Group not found" });
-    if (group.endTiming) 
+    if (group.endTiming)
       return res.status(400).json({ message: "Already recorded" });
 
     const now = new Date()
@@ -309,4 +405,5 @@ router.put("/groups/:groupId/endtime", verifyToken, async (req, res) => {
   }
 });
 
+router.post("/attendance/action", handleAttendanceAction);
 export default router;

@@ -2,12 +2,19 @@ import mongoose from "mongoose";
 
 const TaskSchema = new mongoose.Schema({
   projname: { type: String, default: "" }, // project name
-  name: { type: String, default: "" },  
+  name: { type: String, default: "" },
   timing: { type: String, default: "" }, // auto-filled current time
   issue: { type: String, default: "" },
-  endTiming :{ type: String, default: "" },
+  endTiming: { type: String, default: "" },
   status: { type: String, default: "" },
-   images: { type: [String], default: [] }, 
+  images: {
+    type: [{
+      url: String,
+      public_id: String,
+      deleteAt: Date
+    }],
+    default: []
+  },
 }, { timestamps: true });
 
 const TaskGroupSchema = new mongoose.Schema({

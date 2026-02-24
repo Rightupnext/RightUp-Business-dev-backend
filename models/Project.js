@@ -8,6 +8,7 @@ const projectSchema = new mongoose.Schema(
     startDate: { type: String },
     endDate: { type: String },
     requirements: { type: String },
+    requirementFiles: [{ type: String }], // ✅ Added to store file paths/URLs
     status: {
       type: String,
       enum: ["Inprogress", "Completed"],

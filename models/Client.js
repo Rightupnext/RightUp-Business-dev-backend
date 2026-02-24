@@ -24,6 +24,14 @@ const ClientSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
     reminders: [ReminderSchema],
+    attachments: [
+      {
+        name: String,
+        url: String,
+        mimetype: String,
+        size: Number,
+      },
+    ],
   },
   {
     timestamps: true, // 🔥 REQUIRED FOR SORTING & SYNCING
