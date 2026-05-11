@@ -24,13 +24,11 @@ router.use(
 
 // ✅ Helper functions — no timezone formatting
 const todayDate = () => {
-  const now = new Date();
-  return now.toISOString().slice(0, 10); // always in UTC (YYYY-MM-DD)
+  return new Date().toISOString().slice(0, 10); // always in UTC (YYYY-MM-DD)
 };
 
 const timeNowRaw = () => {
-  const now = new Date();
-  return now.toISOString().split("T")[1].slice(0, 8); // HH:mm:ss (24-hour)
+  return new Date().toISOString(); // Full ISO string (UTC)
 };
 
 

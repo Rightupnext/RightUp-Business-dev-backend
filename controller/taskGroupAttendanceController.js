@@ -14,19 +14,26 @@ import {
 const toDate = (timeStr) => {
   if (!timeStr) return null;
 
+  // New format: ISO string (e.g., 2026-02-24T10:00:00.000Z)
+  if (timeStr.includes("T") && timeStr.includes("Z")) {
+    const date = new Date(timeStr);
+    if (!isNaN(date)) return date;
+  }
+
   const date = new Date();
 
-  // Check if it's 12-hour format with AM/PM
+  // Check if it's 12-hour format with AM/PM (Deprecated format)
   if (timeStr.includes(" ")) {
     const [time, modifier] = timeStr.split(" ");
     let [hours, minutes] = time.split(":").map(Number);
 
-    if (modifier === "PM" && hours !== 12) hours += 12;
-    if (modifier === "AM" && hours === 12) hours = 0;
+    const isPM = modifier.toLowerCase() === "pm";
+    if (isPM && hours !== 12) hours += 12;
+    if (!isPM && hours === 12) hours = 0;
 
     date.setHours(hours, minutes, 0, 0);
-  } else {
-    // 24-hour format "HH:mm:ss"
+  } else if (timeStr.includes(":")) {
+    // 24-hour format "HH:mm:ss" (Deprecated format)
     const [hours, minutes, seconds = 0] = timeStr.split(":").map(Number);
     date.setHours(hours, minutes, seconds, 0);
   }
@@ -139,7 +146,7 @@ export const handleAttendanceAction = async (req, res) => {
   try {
     const { userId, action } = req.body;
     const today = new Date().toISOString().split("T")[0];
-    const now = nowTime12H();
+    const now = new Date().toISOString();
 
     let tg = await TaskGroup.findOne({ userId, date: today });
 

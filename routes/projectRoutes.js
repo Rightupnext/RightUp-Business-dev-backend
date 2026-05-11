@@ -129,14 +129,34 @@ router.put("/:id", verifyToken, upload.array("files"), async (req, res) => {
   }
 });
 
-/** ✅ Delete Project */
-router.delete("/:id", verifyToken, async (req, res) => {
+/** ✅ Delete Specific File from Project */
+router.delete("/:id/file", verifyToken, async (req, res) => {
   try {
-    const deleted = await Project.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Project not found" });
-    res.json({ message: "Project deleted successfully" });
+    const { id } = req.params;
+    const { filePath } = req.body;
+
+    if (!filePath) {
+      return res.status(400).json({ message: "File path is required" });
+    }
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Remove file path from array
+    project.requirementFiles = project.requirementFiles.filter(file => file !== filePath);
+    await project.save();
+
+    // Delete physical file
+    const absolutePath = path.join(process.cwd(), filePath);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
+
+    res.json({ message: "File deleted successfully", project });
   } catch (error) {
-    console.error("Error deleting project:", error);
+    console.error("Error deleting project file:", error);
     res.status(500).json({ message: "Server error" });
   }
 });

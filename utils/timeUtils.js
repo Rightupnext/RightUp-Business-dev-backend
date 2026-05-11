@@ -15,15 +15,27 @@ export const nowTime12H = () => {
 export const parseTimeToday = (timeStr) => {
   if (!timeStr) return null;
 
-  const [time, modifier] = timeStr.split(" ");
-  let [hours, minutes] = time.split(":").map(Number);
+  // Handle ISO string
+  if (timeStr.includes("T") && timeStr.includes("Z")) {
+    const d = new Date(timeStr);
+    if (!isNaN(d)) return d;
+  }
 
-  if (modifier === "pm" && hours !== 12) hours += 12;
-  if (modifier === "am" && hours === 12) hours = 0;
+  // Handle "hh:mm am/pm" (Deprecated)
+  if (timeStr.includes(" ")) {
+    const [time, modifier] = timeStr.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
 
-  const d = new Date();
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+    const isPM = modifier.toLowerCase() === "pm";
+    if (isPM && hours !== 12) hours += 12;
+    if (!isPM && hours === 12) hours = 0;
+
+    const d = new Date();
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  }
+
+  return null;
 };
 
 // Difference in ms between two "hh:mm am/pm" strings
