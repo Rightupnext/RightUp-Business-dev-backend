@@ -196,6 +196,7 @@ router.post("/groups/:groupId/tasks", verifyToken, async (req, res) => {
     const now = timeNowRaw();
     const task = {
       projname: "",
+      projectId: null,
       name: "",
       timing: now,
       issue: "",

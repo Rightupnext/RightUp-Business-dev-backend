@@ -27,7 +27,7 @@ const upload = multer({ storage });
 /** ✅ Create Project */
 router.post("/", verifyToken, upload.array("files"), async (req, res) => {
   try {
-    const { projectName, projectType, startDate, endDate, requirements, status } = req.body;
+    const { projectName, projectType, startDate, endDate, expectedEndDate, startTime, endTime, requirements, status } = req.body;
 
     if (!projectName || !projectType)
       return res.status(400).json({ message: "Project name and type are required" });
@@ -42,6 +42,9 @@ router.post("/", verifyToken, upload.array("files"), async (req, res) => {
       projectType,
       startDate,
       endDate,
+      expectedEndDate,
+      startTime,
+      endTime,
       requirements,
       requirementFiles, // ✅ Save file paths
       status,

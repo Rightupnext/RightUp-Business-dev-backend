@@ -7,6 +7,9 @@ const projectSchema = new mongoose.Schema(
     projectType: { type: String, required: true },
     startDate: { type: String },
     endDate: { type: String },
+    expectedEndDate: { type: String }, // ✅ Addeds
+    startTime: { type: String }, // ✅ Added
+    endTime: { type: String }, // ✅ Added
     requirements: { type: String },
     requirementFiles: [{ type: String }], // ✅ Added to store file paths/URLs
     status: {
