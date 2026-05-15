@@ -17,6 +17,7 @@ import projectHolidayRoutes from "./routes/projectHolidayRoutes.js";
 import path from "path";
 import startImageCleanupJob from "./utils/imageCleanup.js";
 import analyticsReportRoutes from "./routes/analyticsReportRoutes.js";
+import scheduleRoutes from "./routes/scheduleRoutes.js";
 const app = express();
 // ... (previous code)
 
@@ -49,6 +50,7 @@ app.use("/permissions", permissionRoutes);
 app.use("/reports", reportRoutes);
 app.use("/project-holidays", projectHolidayRoutes);
 app.use("/analytics", analyticsReportRoutes);
+app.use("/schedules", scheduleRoutes);
 app.listen(process.env.PORT, () =>
   console.log(`✅ Server running on ${process.env.PORT}`)
 );
