@@ -33,8 +33,11 @@
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.7",
     "react-router-dom": "^7.9.4",
-    "streamifier": "^0.1.1"
+    "socket.io": "^4.8.3",
+    "streamifier": "^0.1.1",
+    "ua-parser-js": "^2.0.9"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

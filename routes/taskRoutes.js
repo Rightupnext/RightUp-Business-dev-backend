@@ -11,7 +11,7 @@ import {
   calculateBreakDuration,
   formatMs
 } from "../controller/taskGroupAttendanceController.js";
-
+import { detectDeviceType,restrictDevice } from "../middleware/deviceType.js";
 const router = express.Router();
 
 // ✅ Enable file uploads (no multer)
@@ -106,7 +106,7 @@ router.get("/groups/user/:userId", verifyToken, async (req, res) => {
 
 /* ✅ 3. Create new task group (self)                                         */
 
-router.post("/groups", verifyToken, async (req, res) => {
+router.post("/groups", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const date = req.body.date || todayDate();
     const newGroup = new TaskGroup({
@@ -124,7 +124,7 @@ router.post("/groups", verifyToken, async (req, res) => {
 
 /* ✅ 4. Delete a task group                                                  */
 
-router.delete("/groups/:groupId", verifyToken, async (req, res) => {
+router.delete("/groups/:groupId", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     await TaskGroup.findOneAndDelete({
       _id: req.params.groupId,
@@ -140,7 +140,7 @@ router.delete("/groups/:groupId", verifyToken, async (req, res) => {
 
 /* ✅ 5. Update group time fields (no timezone formatting)                    */
 
-router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
+router.put("/groups/:groupId/time", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const { type } = req.body;
     const valid = [
@@ -191,7 +191,7 @@ router.put("/groups/:groupId/time", verifyToken, async (req, res) => {
 
 /* ✅ 6. Add new task                                                        */
 
-router.post("/groups/:groupId/tasks", verifyToken, async (req, res) => {
+router.post("/groups/:groupId/tasks", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const now = timeNowRaw();
     const task = {
@@ -217,7 +217,7 @@ router.post("/groups/:groupId/tasks", verifyToken, async (req, res) => {
 
 /* ✅ 7. Update task fields (inline edit)                                     */
 
-router.patch("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) => {
+router.patch("/groups/:groupId/tasks/:taskId", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const { groupId, taskId } = req.params;
 
@@ -272,6 +272,8 @@ router.patch("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) => 
 router.post(
   "/groups/:groupId/tasks/:taskId/images",
   verifyToken,
+  detectDeviceType,
+  restrictDevice,
   async (req, res) => {
     try {
       const { groupId, taskId } = req.params;
@@ -316,7 +318,7 @@ router.post(
 
 /* ✅ 9. Delete task image                                                   */
 
-router.delete("/groups/:groupId/tasks/:taskId/images", verifyToken, async (req, res) => {
+router.delete("/groups/:groupId/tasks/:taskId/images", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const { groupId, taskId } = req.params;
     const { imageUrl } = req.body;
@@ -359,7 +361,7 @@ router.delete("/groups/:groupId/tasks/:taskId/images", verifyToken, async (req, 
 
 /* ✅ 10. Delete task only                                                   */
 
-router.delete("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) => {
+router.delete("/groups/:groupId/tasks/:taskId", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const { groupId, taskId } = req.params;
     const updated = await TaskGroup.findOneAndUpdate(
@@ -374,7 +376,7 @@ router.delete("/groups/:groupId/tasks/:taskId", verifyToken, async (req, res) =>
     res.status(500).json({ message: "Task delete failed" });
   }
 });
-router.put("/groups/:groupId/endtime", verifyToken, async (req, res) => {
+router.put("/groups/:groupId/endtime", verifyToken,detectDeviceType,restrictDevice, async (req, res) => {
   try {
     const group = await TaskGroup.findOne({
       _id: req.params.groupId,

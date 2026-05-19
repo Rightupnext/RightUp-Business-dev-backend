@@ -11,7 +11,10 @@ const userSchema = new mongoose.Schema({
     enum: ["business", "project"],
     required: true,
   },
-
+  deviceAllowed: {
+    type: Boolean,
+    default: false,
+  },
 
 });
 
